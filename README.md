@@ -1,65 +1,128 @@
 # Mariner Paperless → Receipts Space Migration
 
-A Python script to migrate receipts from [Mariner Paperless] (also known as ReceiptWallet) to [Receipts Space](https://receipts-space.com).
+A Python script to migrate receipts from [Mariner Paperless](https://www.marinersoftware.com) (also known as ReceiptWallet) to [Receipts Space](https://receipts-space.com) by Dirk Holtwick.
 
 ## Background
 
-Mariner Software went out of business, leaving Paperless users with a large library of receipts in a proprietary format with no migration path. This script reads the Paperless SQLite database and writes receipts directly to Receipts Space's open `.dat` transaction format, preserving vendors, categories, amounts, dates, notes, and tags.
+Mariner Software went out of business, leaving Paperless users with a large library of receipts in a proprietary format with no migration path. This script migrates your metadata (vendors, categories, amounts, dates, payment dates, notes, and tags) into Receipts Space.
+
+**Important:** The script only migrates metadata — not the PDF files themselves. You need to export and import the PDFs separately (see Step 1 below).
 
 Successfully migrated ~23,000 receipts across three libraries (EUR, USD, AUD).
 
+## Prerequisites
+
+- Python 3.9+
+- Mariner Paperless still installed and accessible on your Mac
+- [Receipts Space](https://receipts-space.com) installed
+
+## Migration Steps
+
+### Step 1: Export your PDFs from Paperless
+
+1. Open Mariner Paperless
+1. Select all receipts: **Edit → Select All** (⌘A)
+1. Export: **File → Export → Selected Documents as PDF**
+1. Choose a folder to save all PDFs (e.g. `~/Desktop/Paperless Export/`)
+1. Wait for the export to complete — this may take a while for large libraries
+
+### Step 2: Export your metadata as CSV
+
+1. Still in Paperless, with all receipts selected
+1. **File → Export → CSV**
+1. Save the CSV file (e.g. `~/Desktop/Documents.csv`)
+
+### Step 3: Create a new Receipts Space library
+
+1. Open Receipts Space
+1. **File → New Library** — give it a name (e.g. “My Receipts”)
+1. Import all your PDFs: drag the entire export folder onto Receipts Space
+1. Wait for RS to finish importing and processing all PDFs
+
+### Step 4: Find your Client ID
+
+1. In Finder, right-click your RS library → **Show Package Contents** (or navigate to the library folder)
+1. Open the `transactions/` folder
+1. You will see one or more subfolders with long alphanumeric names — these are client IDs
+1. The client ID you need matches `createClientId` in `info.json` at the root of the library
+
+### Step 5: Run the migration script
+
+Always do a dry run first to verify everything looks correct:
+
+```bash
+python3 paperless_to_receipts.py \
+    --csv ~/Desktop/Documents.csv \
+    --library "/path/to/Your Library.receipts-space" \
+    --client-id <clientId> \
+    --currency EUR \
+    --dry-run
+```
+
+Check the output — it shows how many receipts were matched and what metadata would be written. When you are happy, run without `--dry-run`:
+
+```bash
+python3 paperless_to_receipts.py \
+    --csv ~/Desktop/Documents.csv \
+    --library "/path/to/Your Library.receipts-space" \
+    --client-id <clientId> \
+    --currency EUR
+```
+
+Receipts Space can stay open while the script runs — changes appear almost instantly.
+
+### Step 6: Verify
+
+Check a few receipts in Receipts Space to confirm vendors, amounts, dates and categories look correct.
+
+## Arguments
+
+|Argument     |Required|Description                                            |
+|-------------|--------|-------------------------------------------------------|
+|`--csv`      |Yes     |Path to Paperless CSV export                           |
+|`--library`  |Yes     |Path to Receipts Space library                         |
+|`--client-id`|Yes     |Client ID (see Step 4)                                 |
+|`--currency` |        |Currency code: EUR, USD, AUD, etc. (default: EUR)      |
+|`--db-tag`   |        |Tag added to every migrated entry, useful for filtering|
+|`--dry-run`  |        |Preview without writing any files                      |
+
 ## Features
 
-- Migrates receipts, vendors, categories, amounts, dates, notes and payment dates
-- Handles EU and US number formats (e.g. `1.234,56` and `1,234.56`)
+- Migrates vendors, categories, amounts, dates, payment dates, notes and tags
+- Handles EU and US number formats (e.g. 1.234,56 and 1,234.56)
 - Normalises filenames (double extensions, multiple spaces, etc.)
-- Maps Paperless tags to Receipts Space tags
-- Handles `_deleted` records gracefully
-- Supports multiple currency libraries (EUR, USD, AUD) via `--mode` flag
+- Auto-normalises vendor name spelling variations (majority-wins)
+- Handles deleted records gracefully
+- Supports multiple currency libraries via –currency
 
 ## Limitations
 
-- **Account and Posted** are custom fields in Paperless that have no equivalent in Receipts Space. The script omits these fields. If you relied on them, you will need to handle them manually or extend the script.
-- Receipts Space does not currently support custom fields.
-
-## Requirements
-
-- Python 3.9+
-- [Receipts Space](https://receipts-space.com) for Mac (v2+)
-- Mariner Paperless installed (to locate the library)
-
-## Usage
-
-```bash
-python3 paperless_to_receipts.py --mode aud
-```
-
-Supported modes: `eur`, `usd`, `aud`
-
-## Setup
-
-Before running, edit the following variables at the top of the script to match your setup:
-
-- `PAPERLESS_LIBRARY` — path to your Paperless library
-- `RS_LIBRARY` — path to your Receipts Space library
-- `RS_CLIENT_ID` — your Receipts Space client ID (found in the `transactions/` folder)
-- `RS_WORKSPACE_ID` — your workspace ID (found in `info.json`)
-
-## How It Works
-
-Receipts Space uses an open, documented [CRDT-based file format](https://receipts-space.com/en/docs). Each change is stored as a `.dat` transaction file with a JSON header and JSON content line. This script writes new transaction files directly into the Receipts Space library, chaining them correctly using SHA256 hashes.
-
-See [Receipts Space Technical Documentation](https://receipts-space.com/en/docs) for details on the file format.
+- PDFs must be imported into Receipts Space first — the script only writes metadata
+- Account and Posted are custom fields in Paperless that have no direct equivalent in Receipts Space. Account is migrated as a tag; Posted is migrated as the payment date
+- Receipts Space does not currently support custom fields
+- Each Paperless library (if you have multiple currencies) needs to be migrated separately with its own –currency flag
 
 ## Caveats
 
-- For large migrations, close Receipts Space before running the script. For small batches it can stay open.
-- Receipts Space should pick up the changes automatically after the script completes. If entries don't appear updated, quit RS and delete the cache:
-  `~/Library/Application Support/de.holtwick.mac.homebrew.Receipts2/data/<workspaceId>.*`
-  Then reopen Receipts Space — it will rebuild from the transaction files.
-- Duplicate detection in Receipts Space should be temporarily disabled during migration
-- Test with a small batch first before migrating your full library
+- Receipts Space can stay open while the script runs — changes appear almost instantly
+- If entries do not appear updated, quit RS and delete the cache:
+  ~/Library/Application Support/de.holtwick.mac.homebrew.Receipts2/data/<workspaceId>.*
+  Then reopen Receipts Space — it will rebuild from the transaction files
+- Temporarily disable duplicate detection in Receipts Space during migration
+- Always test with –dry-run before running the full migration
+
+## Contact Normalisation
+
+If your Paperless data has spelling variants of the same vendor (e.g. “Starbucks” and “Starbucks Coffee”), edit the CONTACT_NORMALISE dictionary at the top of the script:
+
+```python
+CONTACT_NORMALISE = {
+    "Starbucks Coffee": "Starbucks",
+}
+```
+
+The script also auto-detects variants by grouping case-insensitive duplicates and picking the majority spelling.
 
 ## License
 
-GNU General Public License v3.0 — see [LICENSE](LICENSE) for details.
+GNU General Public License v3.0 — see LICENSE for details.
