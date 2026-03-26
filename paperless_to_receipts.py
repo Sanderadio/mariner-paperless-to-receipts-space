@@ -42,10 +42,10 @@ Usage:
       --currency EUR
 
   # After the script completes:
-  # 1. Quit Receipts Space
-  # 2. Delete the library's cache folder in:
+  # Receipts Space should pick up the changes automatically.
+  # If receipts don't appear updated, quit RS and delete the cache:
   #    ~/Library/Application Support/de.holtwick.mac.homebrew.Receipts2/data/<workspaceId>*
-  # 3. Reopen Receipts Space — it will rebuild from the transaction files
+  # Then reopen Receipts Space — it will rebuild from the transaction files.
 
 Arguments:
   --csv         Path to Paperless CSV export
@@ -534,10 +534,10 @@ def write_all(matches, library_path, client_id, device_id,
         print(f"   {action}: {path.name} ({len(entity_records)} entity records)")
         idx += 1
 
-    with open("entity_ids.json", "w", encoding="utf-8") as f:
+    with open("/tmp/entity_ids.json", "w", encoding="utf-8") as f:
         json.dump({"contacts": contact_ids, "categories": category_ids, "tags": tag_ids},
                   f, ensure_ascii=False, indent=2)
-    print(f"   💾 Entity IDs saved to entity_ids.json")
+    print(f"   💾 Entity IDs saved to /tmp/entity_ids.json")
 
     # Phase B: Update doc entries with metadata from CSV
     print(f"\n{prefix}Phase B: Updating {len(matches)} doc entries...")
@@ -591,12 +591,12 @@ def write_all(matches, library_path, client_id, device_id,
     print(f"\n{action}: {written} doc updates, Errors: {errors}")
 
     if not dry_run:
-        print("\n⚠️  NEXT STEPS:")
-        print("  1. Quit Receipts Space")
-        print("  2. Delete the library cache:")
+        print("\n✅ NEXT STEPS:")
+        print("  1. Receipts Space should pick up the changes automatically.")
+        print("  2. If entries don't appear updated, quit RS, delete the cache:")
         print("     ~/Library/Application Support/de.holtwick.mac.homebrew.Receipts2/data/<workspaceId>*")
-        print("  3. Reopen Receipts Space — it will rebuild from the transaction files")
-        print("  4. Verify amounts, dates, contacts and categories on a few entries")
+        print("     Then reopen Receipts Space — it will rebuild from the transaction files.")
+        print("  3. Verify amounts, dates, contacts and categories on a few entries.")
 
 
 # ── Main ───────────────────────────────────────────────────────────────────────
@@ -616,9 +616,9 @@ def main():
 
     # Step 1: Build lookup from CSV
     lookup, _ = build_lookup(args.csv)
-    with open("lookup.json", "w", encoding="utf-8") as f:
+    with open("/tmp/lookup.json", "w", encoding="utf-8") as f:
         json.dump(lookup, f, ensure_ascii=False, indent=2)
-    print("💾 Lookup saved to lookup.json")
+    print("💾 Lookup saved to /tmp/lookup.json")
 
     library_path = args.library
     if not (Path(library_path) / "transactions").exists():
@@ -646,9 +646,9 @@ def main():
 
     # Step 4: Match
     matches = match_entries(lookup, doc_entries)
-    with open("matches.json", "w", encoding="utf-8") as f:
+    with open("/tmp/matches.json", "w", encoding="utf-8") as f:
         json.dump(matches, f, ensure_ascii=False, indent=2)
-    print("💾 Matches saved to matches.json")
+    print("💾 Matches saved to /tmp/matches.json")
 
     if not matches:
         print("\n❌ No matches found.")
