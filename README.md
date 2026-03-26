@@ -10,6 +10,11 @@ Mariner Software went out of business, leaving Paperless users with a large libr
 
 Successfully migrated ~23,000 receipts across three libraries (EUR, USD, AUD).
 
+## Tested With
+
+- Mariner Paperless v3.0.80
+- Receipts Space v3.3
+
 ## Prerequisites
 
 - Python 3.9+
