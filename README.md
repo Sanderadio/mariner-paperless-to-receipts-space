@@ -21,30 +21,28 @@ Successfully migrated ~23,000 receipts across three libraries (EUR, USD, AUD).
 ### Step 1: Export your PDFs from Paperless
 
 1. Open Mariner Paperless
-1. Select all receipts: **Edit → Select All** (⌘A)
-1. Export: **File → Export → Selected Documents as PDF**
-1. Choose a folder to save all PDFs (e.g. `~/Desktop/Paperless Export/`)
-1. Wait for the export to complete — this may take a while for large libraries
+2. Select all receipts: **Edit → Select All** (⌘A)
+3. Export: **File → Save Individual Receipts**
+4. Choose a folder to save all PDFs (e.g. `~/Desktop/Paperless Export/`)
+5. Wait for the export to complete — this may take a while for large libraries
 
 ### Step 2: Export your metadata as CSV
 
 1. Still in Paperless, with all receipts selected
-1. **File → Export → CSV**
-1. Save the CSV file (e.g. `~/Desktop/Documents.csv`)
+2. **File → Export as CSV...**
+3. Save the CSV file (e.g. `~/Desktop/Documents.csv`)
 
 ### Step 3: Create a new Receipts Space library
 
 1. Open Receipts Space
-1. **File → New Library** — give it a name (e.g. “My Receipts”)
-1. Import all your PDFs: drag the entire export folder onto Receipts Space
-1. Wait for RS to finish importing and processing all PDFs
+2. **File → New Library** — give it a name (e.g. "My Receipts")
+3. Import all your PDFs: drag the entire export folder onto Receipts Space
+4. Wait for RS to finish importing and processing all PDFs
 
 ### Step 4: Find your Client ID
 
-1. In Finder, right-click your RS library → **Show Package Contents** (or navigate to the library folder)
-1. Open the `transactions/` folder
-1. You will see one or more subfolders with long alphanumeric names — these are client IDs
-1. The client ID you need matches `createClientId` in `info.json` at the root of the library
+1. In Finder, navigate to your RS library folder
+2. Open `info.json` in a text editor — copy the value of `createClientId`
 
 ### Step 5: Run the migration script
 
@@ -77,14 +75,14 @@ Check a few receipts in Receipts Space to confirm vendors, amounts, dates and ca
 
 ## Arguments
 
-|Argument     |Required|Description                                            |
-|-------------|--------|-------------------------------------------------------|
-|`--csv`      |Yes     |Path to Paperless CSV export                           |
-|`--library`  |Yes     |Path to Receipts Space library                         |
-|`--client-id`|Yes     |Client ID (see Step 4)                                 |
-|`--currency` |        |Currency code: EUR, USD, AUD, etc. (default: EUR)      |
-|`--db-tag`   |        |Tag added to every migrated entry, useful for filtering|
-|`--dry-run`  |        |Preview without writing any files                      |
+| Argument | Required | Description |
+|----------|----------|-------------|
+| `--csv` | Yes | Path to Paperless CSV export |
+| `--library` | Yes | Path to Receipts Space library |
+| `--client-id` | Yes | Client ID (see Step 4) |
+| `--currency` | | Currency code: EUR, USD, AUD, etc. (default: EUR) |
+| `--db-tag` | | Tag added to every migrated entry, useful for filtering |
+| `--dry-run` | | Preview without writing any files |
 
 ## Features
 
@@ -93,14 +91,14 @@ Check a few receipts in Receipts Space to confirm vendors, amounts, dates and ca
 - Normalises filenames (double extensions, multiple spaces, etc.)
 - Auto-normalises vendor name spelling variations (majority-wins)
 - Skips receipts that were deleted in Paperless
-- Supports multiple currency libraries via –currency
+- Supports multiple currency libraries via --currency
 
 ## Limitations
 
 - PDFs must be imported into Receipts Space first — the script only writes metadata
 - Account and Posted are optional custom fields in Paperless. If present, Account is migrated as a tag and Posted as the payment date. If absent, the script skips them without errors
 - Receipts Space does not currently support custom fields
-- Each Paperless library (if you have multiple currencies) needs to be migrated separately with its own –currency flag
+- Each Paperless library (if you have multiple currencies) needs to be migrated separately with its own --currency flag
 
 ## Caveats
 
@@ -109,11 +107,11 @@ Check a few receipts in Receipts Space to confirm vendors, amounts, dates and ca
   ~/Library/Application Support/de.holtwick.mac.homebrew.Receipts2/data/<workspaceId>.*
   Then reopen Receipts Space — it will rebuild from the transaction files
 - Temporarily disable duplicate detection in Receipts Space during migration
-- Always test with –dry-run before running the full migration
+- Always test with --dry-run before running the full migration
 
 ## Contact Normalisation
 
-If your Paperless data has spelling variants of the same vendor (e.g. “Starbucks” and “Starbucks Coffee”), edit the CONTACT_NORMALISE dictionary at the top of the script:
+If your Paperless data has spelling variants of the same vendor (e.g. "Starbucks" and "Starbucks Coffee"), edit the CONTACT_NORMALISE dictionary at the top of the script:
 
 ```python
 CONTACT_NORMALISE = {
