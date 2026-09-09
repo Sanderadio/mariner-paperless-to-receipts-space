@@ -21,8 +21,7 @@ Prerequisites:
   1. Export your Paperless database: File > Export > CSV + PDFs
   2. Create a new Receipts Space library and import all PDFs
      (drag the folder onto Receipts Space, or use File > Import)
-  3. Find the client ID: look in the library's transactions/ folder —
-     it's the largest subfolder name (most .dat files)
+  3. Find the client ID: it's "createClientId" in the library's info.json
   4. Note the library path (the .receipts-space package or folder)
 
 Usage:
@@ -50,7 +49,7 @@ Usage:
 Arguments:
   --csv         Path to Paperless CSV export
   --library     Path to Receipts Space library (.receipts-space or folder)
-  --client-id   Client ID to write transactions under (largest folder in transactions/)
+  --client-id   Client ID to write transactions under ('createClientId' in info.json)
   --currency    Currency code for this library: EUR, USD, AUD, etc. (default: EUR)
   --db-tag      Optional tag added to every entry (e.g. "MyLibrary") for filtering
   --dry-run     Preview changes without writing any files
@@ -658,7 +657,8 @@ def main():
     )
     parser.add_argument("--csv", required=True, help="Path to Paperless CSV export")
     parser.add_argument("--library", required=True, help="Path to Receipts Space library")
-    parser.add_argument("--client-id", required=True, help="Client ID (largest folder in transactions/)")
+    parser.add_argument("--client-id", required=True,
+                        help="Client ID — 'createClientId' in the library's info.json")
     parser.add_argument("--currency", default="EUR", help="Currency code: EUR, USD, AUD, etc. (default: EUR)")
     parser.add_argument("--db-tag", default="", help="Tag added to every entry for filtering (e.g. 'MyLibrary')")
     parser.add_argument("--posted-column", default="Posted",

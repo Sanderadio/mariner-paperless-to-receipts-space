@@ -8,12 +8,30 @@ Mariner Software went out of business, leaving Paperless users with a large libr
 
 **Important:** The script only migrates metadata — not the PDF files themselves. You need to export and import the PDFs separately (see Step 1 below).
 
-Successfully migrated ~23,000 receipts across three libraries (EUR, USD, AUD).
+Successfully migrated ~24,000 receipts across four libraries (EUR, USD, AUD).
+
+## ⚠️ If you ran a version of this script before September 2026
+
+Two bugs were fixed on 2026-09-09. One of them destroyed data silently — no
+error, no warning:
+
+- **Transactions were overwritten.** Receipts Space splits a transaction stream
+  into `2/1/`, `2/2/`, … once it passes 1000 files, and each folder restarts at
+  `0.dat`. The script picked its next index from the highest *filename*, so on a
+  library that already held more than 1000 transaction files it resumed at 1000
+  and wrote over the existing files from `2/1/0.dat` onwards.
+- **The chain hash was wrong**, so Receipts Space reported "Previous hash
+  mismatch" and offered Repair Library. Repair *prunes* a broken chain rather
+  than mending it, so accepting it discards the migration.
+
+If you migrated into a library with more than 1000 transaction files, check
+`transactions/<clientId>/2/1/` for receipts that lost their metadata, and
+restore from a backup if needed. Libraries under 1000 files were never affected.
 
 ## Tested With
 
 - Mariner Paperless v3.0.80
-- Receipts Space v3.3
+- Receipts Space v3.3, and re-verified against v3.6 (September 2026)
 
 ## Prerequisites
 
@@ -48,6 +66,10 @@ Successfully migrated ~23,000 receipts across three libraries (EUR, USD, AUD).
 
 1. In Finder, navigate to your RS library folder
 2. Open `info.json` in a text editor — copy the value of `createClientId`
+
+A library can hold several `transactions/<clientId>/` folders, and Receipts Space
+merges them all, so any of them works. Use `createClientId`: it is usually not the
+folder Receipts Space is busy writing to, which keeps the migration out of its way.
 
 ### Step 5: Run the migration script
 
