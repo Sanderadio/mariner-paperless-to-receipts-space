@@ -193,14 +193,24 @@ def extract_filename_from_url(url):
 
 # ── Step 1: Build lookup table from CSV ────────────────────────────────────────
 
-def build_lookup(csv_path):
+def build_lookup(csv_path, posted_column="Posted", credit_payment_methods=()):
     """
     Parse the Paperless CSV export and build a filename → metadata lookup.
-    
+
     Handles duplicate entries (same vendor + date): Paperless sorts them by
     amount ascending, naming them Vendor - DD-MM-YYYY.pdf,
     Vendor - DD-MM-YYYY 2.pdf, Vendor - DD-MM-YYYY 3.pdf, etc.
+
+    posted_column — the CSV column holding the payment date. Paperless custom
+    fields are named by the user, so this varies per library (e.g. "Posted",
+    "Bij/af d.d.").
+
+    credit_payment_methods — payment methods that mean income rather than
+    expense. Paperless has no sign convention of its own: many libraries
+    record income as a positive amount and only the payment method
+    distinguishes it.
     """
+    credit_methods = {m.strip().lower() for m in credit_payment_methods if m.strip()}
     rows = []
     with open(csv_path, newline="", encoding="utf-8-sig") as f:
         for row in csv.DictReader(f):
@@ -253,7 +263,8 @@ def build_lookup(csv_path):
             "category": category,
             "notes": notes,
             "tags_raw": all_tags,
-            "posted": parse_date_posted(row.get("Posted", "")),
+            "posted": parse_date_posted(row.get(posted_column, "")),
+            "credit": amount < 0 or pm.lower() in credit_methods,
         })
 
     lookup = {}
@@ -268,6 +279,18 @@ def build_lookup(csv_path):
             lookup[filename] = entry
 
     print(f"\n✅ Built lookup table: {len(lookup)} entries")
+
+    if rows and posted_column not in rows[0]:
+        print(f"   ⚠️  No column {posted_column!r} in the CSV — payment dates will "
+              f"NOT be migrated. Columns present: {', '.join(rows[0].keys())}")
+    else:
+        print(f"   Payment dates from {posted_column!r}: "
+              f"{sum(1 for e in lookup.values() if e['posted'])}/{len(lookup)}")
+    if credit_methods:
+        n_credit = sum(1 for e in lookup.values() if e["credit"])
+        print(f"   Income (credit) entries: {n_credit}/{len(lookup)} "
+              f"via {', '.join(sorted(credit_methods))}")
+
     return lookup, normalise_map
 
 
@@ -431,31 +454,58 @@ def dat_subpath(index):
     return Path(*parts).with_suffix(".dat")
 
 
+def index_from_subpath(rel_path):
+    """
+    Inverse of dat_subpath: recover the transaction index from a path like
+    1/742.dat → 742, 2/1/0.dat → 1000, 2/2/186.dat → 2186.
+    The first component is the depth; the rest are base-1000 digits,
+    most significant first.
+    """
+    parts = list(Path(rel_path).parts)
+    digits = [int(parts[-1].replace(".dat", ""))] if parts else []
+    for p in reversed(parts[1:-1]):
+        digits.append(int(p))
+    index = 0
+    for power, digit in enumerate(digits):
+        index += digit * (1000 ** power)
+    return index
+
+
 def get_next_index(tx_client_dir):
+    """
+    Next free transaction index.
+
+    NB: the index must be recovered from the WHOLE relative path, not the
+    filename. Once a stream passes 1000 files RS shards into 2/1/, 2/2/, …
+    and every shard restarts at 0.dat — so taking the highest basename gives
+    999 forever and the next write silently overwrites 2/1/0.dat onwards.
+    """
     dat_files = list(tx_client_dir.rglob("*.dat"))
     if not dat_files:
         return 0
     indices = []
     for f in dat_files:
         try:
-            parts = list(f.relative_to(tx_client_dir).parts)
-            indices.append(int(parts[-1].replace(".dat", "")))
+            indices.append(index_from_subpath(f.relative_to(tx_client_dir)))
         except (ValueError, IndexError):
             continue
     return max(indices) + 1 if indices else 0
 
 
 def get_prev_hash(tx_client_dir, index):
+    """
+    The header's `p` is sha256 of the ENTIRE previous .dat file — header line
+    included — not that file's `c` (which covers only its payload).
+    Getting this wrong makes RS report "Previous hash mismatch" and offer
+    Repair Library, which prunes the chain instead of fixing it.
+    """
     if index == 0:
         return None
     prev_path = tx_client_dir / dat_subpath(index - 1)
     if not prev_path.exists():
         return None
     try:
-        content = prev_path.read_bytes()
-        header_line = content.split(b"\n", 1)[0]
-        header = json.loads(header_line)
-        return header.get("c")
+        return sha256_b64(prev_path.read_bytes())
     except Exception:
         return None
 
@@ -552,7 +602,7 @@ def write_all(matches, library_path, client_id, device_id,
         tag_ids_for_entry = {tag_ids[t]: True for t in all_tags if t in tag_ids}
 
         amount = match["amount"]
-        is_credit = amount < 0
+        is_credit = match.get("credit", amount < 0)
         record = {
             "_deleted": False,
             "_id": match["rs_id"],
@@ -611,11 +661,23 @@ def main():
     parser.add_argument("--client-id", required=True, help="Client ID (largest folder in transactions/)")
     parser.add_argument("--currency", default="EUR", help="Currency code: EUR, USD, AUD, etc. (default: EUR)")
     parser.add_argument("--db-tag", default="", help="Tag added to every entry for filtering (e.g. 'MyLibrary')")
+    parser.add_argument("--posted-column", default="Posted",
+                        help="CSV column holding the payment date (default: 'Posted'). "
+                             "Paperless custom fields are user-named, so this varies "
+                             "per library, e.g. 'Bij/af d.d.'")
+    parser.add_argument("--credit-payment-method", action="append", default=[],
+                        metavar="NAME",
+                        help="Payment method that means income, not expense "
+                             "(e.g. 'Bij-boeking'). Repeatable. Paperless exports "
+                             "income as a positive amount, so without this everything "
+                             "is migrated as an expense.")
     parser.add_argument("--dry-run", action="store_true", help="Preview without writing files")
     args = parser.parse_args()
 
     # Step 1: Build lookup from CSV
-    lookup, _ = build_lookup(args.csv)
+    lookup, _ = build_lookup(args.csv,
+                             posted_column=args.posted_column,
+                             credit_payment_methods=args.credit_payment_method)
     with open("/tmp/lookup.json", "w", encoding="utf-8") as f:
         json.dump(lookup, f, ensure_ascii=False, indent=2)
     print("💾 Lookup saved to /tmp/lookup.json")

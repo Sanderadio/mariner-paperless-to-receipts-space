@@ -86,8 +86,28 @@ Check a few receipts in Receipts Space to confirm vendors, amounts, dates and ca
 | `--library` | Yes | Path to Receipts Space library |
 | `--client-id` | Yes | Client ID (see Step 4) |
 | `--currency` | | Currency code: EUR, USD, AUD, etc. (default: EUR) |
+| `--posted-column` | | CSV column holding the payment date (default: `Posted`) |
+| `--credit-payment-method` | | Payment method that means income, not expense. Repeatable |
 | `--db-tag` | | Tag added to every migrated entry, useful for filtering |
 | `--dry-run` | | Preview without writing any files |
+
+### Income vs expense
+
+Paperless has no sign convention: income is exported as a **positive** amount just
+like an expense, and only the payment method distinguishes the two. Without
+`--credit-payment-method` every entry migrates as an expense. Pass the flag once
+per method that means money coming in:
+
+```bash
+--credit-payment-method "Bij-boeking" --credit-payment-method "Deposit"
+```
+
+### Payment date column
+
+Account and Posted are user-named custom fields in Paperless, so the payment-date
+column is called something different in every library (`Posted`, `Bij/af d.d.`, …).
+Point `--posted-column` at yours — the dry run reports how many payment dates it
+found, so a wrong name shows up as `0/N` rather than failing silently.
 
 ## Features
 
