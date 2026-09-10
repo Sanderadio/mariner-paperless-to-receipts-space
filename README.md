@@ -10,23 +10,32 @@ Mariner Software went out of business, leaving Paperless users with a large libr
 
 Successfully migrated ~24,000 receipts across four libraries (EUR, USD, AUD).
 
-## ⚠️ If you ran a version of this script before September 2026
+## If you ran a version of this script before September 2026
 
-Two bugs were fixed on 2026-09-09. One of them destroyed data silently — no
-error, no warning:
+Two bugs in the transaction-writing code were fixed on 2026-09-09. Both needed
+specific conditions to bite, and no damage from either has ever been observed —
+the five libraries migrated with this tool were re-verified afterwards, and all
+36 transaction streams pass a full hash-chain check with zero faults. Worth
+knowing about anyway:
 
-- **Transactions were overwritten.** Receipts Space splits a transaction stream
-  into `2/1/`, `2/2/`, … once it passes 1000 files, and each folder restarts at
-  `0.dat`. The script picked its next index from the highest *filename*, so on a
-  library that already held more than 1000 transaction files it resumed at 1000
-  and wrote over the existing files from `2/1/0.dat` onwards.
-- **The chain hash was wrong**, so Receipts Space reported "Previous hash
-  mismatch" and offered Repair Library. Repair *prunes* a broken chain rather
-  than mending it, so accepting it discards the migration.
+- **The next-index calculation was wrong past 1000 files.** Receipts Space
+  splits a transaction stream into `2/1/`, `2/2/`, … once it passes 1000 files,
+  and each folder restarts at `0.dat`. The script took its starting index from
+  the highest *filename*, which sticks at 999 forever. It only matters if you
+  point `--client-id` at a stream that ALREADY holds more than 1000 files — it
+  would then resume at 1000 and overwrite from `2/1/0.dat` on. The `createClientId`
+  this README tells you to use is normally a near-empty stream, so the path that
+  triggers it was the script's own `--help` text, which used to say "largest
+  folder in transactions/". That contradiction is now gone.
+- **The chain hash used the previous file's `c` instead of hashing the whole
+  file.** This one only ever existed in this public version, not in the script
+  the original migrations were run with. It fails loudly rather than quietly:
+  Receipts Space reports "Previous hash mismatch" on the first read.
 
-If you migrated into a library with more than 1000 transaction files, check
-`transactions/<clientId>/2/1/` for receipts that lost their metadata, and
-restore from a backup if needed. Libraries under 1000 files were never affected.
+If you did point `--client-id` at a stream with more than 1000 files, check
+`transactions/<clientId>/2/1/` before assuming all is well. And if Receipts Space
+ever offers **Repair Library**, don't take it — repair *prunes* a broken chain
+rather than mending it, so it discards rather than recovers.
 
 ## Tested With
 
