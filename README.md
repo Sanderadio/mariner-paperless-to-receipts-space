@@ -8,7 +8,7 @@ Mariner Software went out of business, leaving Paperless users with a large libr
 
 **Important:** The script only migrates metadata — not the PDF files themselves. You need to export and import the PDFs separately (see Step 1 below).
 
-Successfully migrated ~24,000 receipts across four libraries (two EUR, one USD, one AUD).
+Successfully migrated five libraries — roughly 29,000 receipts and documents across EUR, USD and AUD.
 
 ## Tested With
 
@@ -154,9 +154,9 @@ The script also auto-detects variants by grouping case-insensitive duplicates an
 
 Two bugs in the transaction-writing code were fixed on 2026-09-09. Both needed
 specific conditions to bite, and no damage from either has ever been observed —
-every Receipts Space library on the machine these migrations ran on was
-re-verified afterwards, and all 36 transaction streams pass a full hash-chain
-check with zero gaps and zero broken links. Worth knowing about anyway:
+all five migrated libraries were re-verified afterwards, and their 36 transaction
+streams pass a full hash-chain check with zero gaps and zero broken links. Worth
+knowing about anyway:
 
 - **The next-index calculation was wrong past 1000 files.** Receipts Space
   splits a transaction stream into `2/1/`, `2/2/`, … once it passes 1000 files,
